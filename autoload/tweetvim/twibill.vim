@@ -14,7 +14,11 @@ function! tweetvim#twibill#new(config)
       let param.since_id = self['cache_since_id_' . a:url]
     endif
 
-    let res    = twibill#oauth#get(a:url, self.ctx(), {}, a:param)
+    let res   = twibill#oauth#get(a:url, self.ctx(), {}, a:param)
+
+    if get(param, 'raw', 0)
+      return res.content
+    end
     " for debug
     if g:tweetvim_log
       call tweetvim#log('twibill#get url    : ' . a:url)

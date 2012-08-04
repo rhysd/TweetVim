@@ -5,6 +5,9 @@ let s:backup = []
 let s:buf_name = '[tweetvim]'
 
 let s:last_bufnr = 0
+
+let s:last_stream_time = getftime('/tmp/hoge.txt')
+
 "
 "
 "
@@ -399,5 +402,36 @@ function! s:define_default_key_mappings()
 
     nnoremap <silent> <buffer> a :call unite#sources#tweetvim_action#start()<CR>
     nnoremap <silent> <buffer> t :call unite#sources#tweetvim_timeline#start()<CR>
+
+    " autocmd for auto read
+    "
+    autocmd CursorHold * call s:tweets_stream()
+    autocmd CursorHold <buffer> silent call s:stream_polling()
   augroup END  
+endfunction
+
+
+"
+function! s:tweets_stream()
+  let time = getftime('/tmp/hoge.txt')
+  if s:last_stream_time < time
+    echo "stream!"
+    let s:last_stream_time = time
+    call tweetvim#buffer#prepend(twibill#json#decode(readfile('/tmp/hoge.txt')[0]))  
+  else
+    "echoerr "no stream ... " . string(s:last_stream_time) . ' < ' . string(time)
+    let now = reltime()[0]
+    echo string(now - s:last_stream_time)
+    if now - s:last_stream_time  > 5
+      let s:last_stream_time = now
+      let vim_path = '/Applications/MacVim.app/Contents/MacOS/Vim'
+      let args = [vim_path, '-i', 'NONE', '-n',
+            \       '-N', '-S', '/Users/basyura/repos/vim/scripts/echo.vim']
+      call vimproc#system_bg(args)
+    end
+  endif
+endfunction
+
+function! s:stream_polling()
+    silent call feedkeys("g\<Esc>", "n")
 endfunction

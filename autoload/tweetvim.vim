@@ -6,6 +6,7 @@ let s:hooks = {
       \ 'write_screen_name' : [],
       \ 'write_hash_tag'    : [],
       \ }
+
 " for screen_name complete
 call tweetvim#cache#read('screen_name')
 "
@@ -92,6 +93,25 @@ function! tweetvim#access_token()
     echohl Error | echo "failed to get access token" | echohl None
     return ['error','error']
   endtry
+endfunction
+"
+"
+"
+function! tweetvim#request(method, args)
+  let args  = type(a:args) == 3 ? a:args : [a:args]
+  let param = {'per_page' : g:tweetvim_tweet_per_page, 
+              \'count'    : g:tweetvim_tweet_per_page}
+  let param.include_rts = get(g:, 'tweetvim_include_rts', 1)
+  let args  = s:merge_params(args, param)
+
+  try
+    let twibill = s:twibill()
+  catch
+    echoerr 'You must install twibill.vim (https://github.com/basyura/twibill.vim)'
+    return {}
+  endtry
+
+  return call(twibill[a:method], args, twibill)
 endfunction
 "
 "
