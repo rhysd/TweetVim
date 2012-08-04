@@ -417,7 +417,16 @@ function! s:tweets_stream()
   if s:last_stream_time < time
     echo "stream!"
     let s:last_stream_time = time
-    call tweetvim#buffer#prepend(twibill#json#decode(readfile('/tmp/hoge.txt')[0]))  
+    if &filetype ==# 'tweetvim'
+      let last_id = b:tweetvim_status_cache[0].id_str
+      let target  = []
+      for tweet in twibill#json#decode(readfile('/tmp/hoge.txt')[0])
+        if last_id < tweet.id_str
+          call add(target, tweet)
+        endif
+      endfor
+      call tweetvim#buffer#prepend(target)
+    end
   else
     "echoerr "no stream ... " . string(s:last_stream_time) . ' < ' . string(time)
     let now = reltime()[0]
