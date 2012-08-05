@@ -82,7 +82,7 @@ endfunction
 function! tweetvim#buffer#prepend(tweets)
   let tweets = type(a:tweets) != 3 ? [a:tweets] : a:tweets
 
-  call extend(reverse(tweets), values(b:tweetvim_status_cache))
+  let tweets = reverse(tweets) + values(b:tweetvim_status_cache)
   let title  = join(split(b:tweetvim_method, '_'), ' ')
 
   call tweetvim#buffer#load(b:tweetvim_method, b:tweetvim_args, title, tweets)
@@ -412,8 +412,9 @@ function! s:tweets_stream()
         endif
       endfor
       if len(target) > 0
-        echo "add new tweets ..."
+        let start = reltime()
         call tweetvim#buffer#prepend(target)
+        echo "added new " . string(len(target)) . " tweets :" . reltimestr(reltime(start))
       endif
     end
   else
