@@ -1,13 +1,14 @@
 scriptencoding utf-8
 
+let s:script_path = expand("<sfile>:p:h")
+
 let s:backup = []
 
 let s:buf_name = '[tweetvim]'
 
 let s:last_bufnr = 0
 
-let s:last_stream_time = getftime('/tmp/hoge.txt')
-
+let s:last_stream_time = getftime(g:tweetvim_config_dir . '/stream/stream.txt')
 "
 "
 "
@@ -413,29 +414,31 @@ endfunction
 
 "
 function! s:tweets_stream()
-  let time = getftime('/tmp/hoge.txt')
+  let time = getftime(g:tweetvim_config_dir . '/stream/stream.txt')
   if s:last_stream_time < time
-    echo "stream!"
     let s:last_stream_time = time
     if &filetype ==# 'tweetvim'
-      let last_id = b:tweetvim_status_cache[0].id_str
       let target  = []
-      for tweet in twibill#json#decode(readfile('/tmp/hoge.txt')[0])
-        if last_id < tweet.id_str
+      let old_id = b:tweetvim_status_cache[0].id_str
+      for tweet in twibill#json#decode(readfile(g:tweetvim_config_dir . '/stream/stream.txt')[0])
+        if old_id < tweet.id_str
           call add(target, tweet)
+          let old_id = tweet.id_str
         endif
       endfor
-      call tweetvim#buffer#prepend(target)
+      if len(target) > 0
+        echo "add new tweets ..."
+        call tweetvim#buffer#prepend(target)
+      endif
     end
   else
-    "echoerr "no stream ... " . string(s:last_stream_time) . ' < ' . string(time)
     let now = reltime()[0]
-    echo string(now - s:last_stream_time)
-    if now - s:last_stream_time  > 5
+    if now - s:last_stream_time  > 10
+      echo "request ..."
       let s:last_stream_time = now
       let vim_path = '/Applications/MacVim.app/Contents/MacOS/Vim'
       let args = [vim_path, '-i', 'NONE', '-n',
-            \       '-N', '-S', '/Users/basyura/repos/vim/scripts/echo.vim']
+            \       '-N', '-S', s:script_path . '/../../lib/stream.vim']
       call vimproc#system_bg(args)
     end
   endif

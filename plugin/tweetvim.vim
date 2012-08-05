@@ -41,7 +41,10 @@ call s:set_global_variable('tweetvim_footer'           , '')
 if !isdirectory(g:tweetvim_config_dir)
   call mkdir(g:tweetvim_config_dir, 'p')
 endif
-"
+
+if !isdirectory(g:tweetvim_config_dir . '/stream')
+  call mkdir(g:tweetvim_config_dir . '/stream', 'p')
+endif
 "
 "
 command! TweetVimAccessToken  :call tweetvim#access_token()
