@@ -82,7 +82,7 @@ endfunction
 function! tweetvim#buffer#prepend(tweets)
   let tweets = type(a:tweets) != 3 ? [a:tweets] : a:tweets
 
-  call extend(reverse(tweets), b:tweetvim_status_cache)
+  call extend(reverse(tweets), values(b:tweetvim_status_cache))
   let title  = join(split(b:tweetvim_method, '_'), ' ')
 
   call tweetvim#buffer#load(b:tweetvim_method, b:tweetvim_args, title, tweets)
@@ -404,7 +404,7 @@ function! s:tweets_stream()
     let s:last_stream_time = time
     if &filetype ==# 'tweetvim'
       let target  = []
-      let old_id = b:tweetvim_status_cache[0].id_str
+      let old_id = sort(keys(b:tweetvim_status_cache))[0]
       for tweet in twibill#json#decode(readfile(g:tweetvim_config_dir . '/stream/stream.txt')[0])
         if old_id < tweet.id_str
           call add(target, tweet)
