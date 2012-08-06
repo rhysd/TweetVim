@@ -89,6 +89,7 @@ function! tweetvim#buffer#prepend(tweets)
 endfunction
 
 function! s:status_id_sorter(i1, i2)
+  " str2nr ?
 	return a:i1.id_str == a:i2.id_str ? 0 : a:i1.id_str < a:i2.id_str ? 1 : -1
 endfunction
 "
@@ -409,7 +410,7 @@ function! s:tweets_stream()
     if &filetype ==# 'tweetvim'
       let target = []
       " TODO : sort
-      let old_id =  b:tweetvim_status_cache[keys(b:tweetvim_status_cache)[0]].id_str
+      let old_id =  sort(values(b:tweetvim_status_cache), 's:status_id_sorter')[0].id_str
       for tweet in twibill#json#decode(readfile(g:tweetvim_config_dir . '/stream/stream.txt')[0])
         if old_id < tweet.id_str
           call add(target, tweet)
