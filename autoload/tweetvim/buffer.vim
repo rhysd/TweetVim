@@ -82,10 +82,14 @@ endfunction
 function! tweetvim#buffer#prepend(tweets)
   let tweets = type(a:tweets) != 3 ? [a:tweets] : a:tweets
 
-  let tweets = reverse(tweets) + values(b:tweetvim_status_cache)
+  let tweets = tweets + sort(values(b:tweetvim_status_cache), "s:status_id_sorter")
   let title  = join(split(b:tweetvim_method, '_'), ' ')
 
   call tweetvim#buffer#load(b:tweetvim_method, b:tweetvim_args, title, tweets)
+endfunction
+
+function! s:status_id_sorter(i1, i2)
+	return a:i1.id_str == a:i2.id_str ? 0 : a:i1.id_str < a:i2.id_str ? 1 : -1
 endfunction
 "
 "
@@ -403,18 +407,20 @@ function! s:tweets_stream()
   if s:last_stream_time < time
     let s:last_stream_time = time
     if &filetype ==# 'tweetvim'
-      let target  = []
-      let old_id = sort(keys(b:tweetvim_status_cache))[0]
+      let target = []
+      " TODO : sort
+      let old_id =  b:tweetvim_status_cache[keys(b:tweetvim_status_cache)[0]].id_str
       for tweet in twibill#json#decode(readfile(g:tweetvim_config_dir . '/stream/stream.txt')[0])
         if old_id < tweet.id_str
           call add(target, tweet)
-          let old_id = tweet.id_str
         endif
       endfor
       if len(target) > 0
         let start = reltime()
         call tweetvim#buffer#prepend(target)
         echo "added new " . string(len(target)) . " tweets :" . reltimestr(reltime(start))
+      else
+        echo ""
       endif
     end
   else
