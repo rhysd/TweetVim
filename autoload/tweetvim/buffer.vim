@@ -85,7 +85,7 @@ function! tweetvim#buffer#prepend(tweets)
   let tweets = tweets + sort(values(b:tweetvim_status_cache), "s:status_id_sorter")
   let title  = join(split(b:tweetvim_method, '_'), ' ')
 
-  call tweetvim#buffer#load(b:tweetvim_method, b:tweetvim_args, title, tweets)
+  call tweetvim#buffer#load(b:tweetvim_method, b:tweetvim_args, title, tweets[0:100])
 endfunction
 
 function! s:status_id_sorter(i1, i2)
