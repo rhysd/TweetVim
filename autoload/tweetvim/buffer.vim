@@ -432,6 +432,8 @@ function! s:tweets_stream()
       let vim_path = '/Applications/MacVim.app/Contents/MacOS/Vim'
       let args = [vim_path, '-i', 'NONE', '-n',
             \       '-N', '-S', s:script_path . '/../../lib/stream.vim']
+
+      call writefile([b:tweetvim_method] + b:tweetvim_args, g:tweetvim_config_dir . '/stream/args.txt')
       call vimproc#system_bg(args)
     end
   endif
