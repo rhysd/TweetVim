@@ -1,6 +1,6 @@
 *tweetvim.txt*	Twitter client.
 
-Version: 1.9
+Version: 2.0
 Author: basyura <basyura+tweetvim@gmail.com>
 License: MIT License
 
@@ -43,6 +43,9 @@ INTRODUCTION					*tweetvim-introduction*
 
 Latest Version:
 https://github.com/basyura/TweetVim
+
+vim.org :
+http://www.vim.org/scripts/script.php?script_id=4532
 
 Requirement:
 (*) optional
