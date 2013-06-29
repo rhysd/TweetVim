@@ -1,6 +1,7 @@
 scriptencoding utf-8
 
 let s:backup = []
+let s:signs  = {}
 
 let s:buf_name = '[tweetvim]'
 
@@ -9,6 +10,12 @@ let s:last_bufnr = 0
 "
 "
 function! tweetvim#buffer#load(method, args, title, tweets, ...)
+
+  if get(b:, 'tweetvim_method', '') == 'userstream'
+    call s:backup('userstream', [], 'userstream', s:sort_values(b:tweetvim_status_cache), {})
+  endif
+
+  call s:unsigns()
 
   let args = copy(a:args)
   let opt  = a:0 ? copy(a:1) : {}
@@ -22,9 +29,21 @@ function! tweetvim#buffer#load(method, args, title, tweets, ...)
 
   let b:tweetvim_bufno = -1
 
-   " define syntax
-   let screen_name = tweetvim#account#current().screen_name
-   execute "syntax match tweetvim_reply '@" . screen_name . "'"
+  " define syntax
+  call s:apply_syntax()
+endfunction
+
+function! s:sort_values(m)
+  let list = []
+  for v in sort(keys(a:m), 's:nr_comparator')
+    call add(list, a:m[v])
+  endfor
+  return list
+endfunction
+"
+"
+function! s:nr_comparator(i1, i2)
+  return a:i1 == a:i2 ? 0 : str2nr(a:i1) > str2nr(a:i2) ? 1 : -1
 endfunction
 "
 "
@@ -65,12 +84,50 @@ function! tweetvim#buffer#replace(lineno, tweet)
   let colno  = col('.')
   let lineno = line('.')
   setlocal modifiable
-  call cursor(a:lineno, colno)
-  delete _
-  call append(a:lineno - 1, type(a:tweet) == 4 ? s:format(a:tweet) : a:tweet)
+  call cursor(a:lineno, 1)
+
+  normal! "_D
+
+  let word = type(a:tweet) == 4 ? s:format(a:tweet) : a:tweet
+
+  " this copy logic is from unite.vim
+  let old_reg = [getreg('"'), getregtype('"')]
+  call setreg('"', word)
+  try
+    execute 'normal! ""p'
+  finally
+    call setreg('"', old_reg[0], old_reg[1])
+  endtry
+
   setlocal nomodified
   setlocal nomodifiable
   call cursor(lineno, colno)
+endfunction
+"
+"
+"
+function! tweetvim#buffer#append(tweet)
+  let tweet  = a:tweet
+  setlocal modifiable
+  let today = tweetvim#util#today()
+  if g:tweetvim_display_separator
+    call s:append_separator(tweetvim#util#separator('-'), 0)
+  endif
+
+  "if has_key(tweet, 'event')
+    "call append(line("$"), tweet.event)
+    "return
+  "endif
+
+  let lineno = line("$")
+  call s:append_text(tweet, today)
+  let b:tweetvim_status_cache[lineno] = tweet
+
+  if g:tweetvim_display_icon && has('gui_running')
+    call s:sign(tweet, lineno)
+  endif
+"  call s:apply_syntax()
+  setlocal nomodifiable
 endfunction
 "
 "
@@ -106,6 +163,27 @@ function! tweetvim#buffer#truncate_backup(size)
   " TODO:
   let s:backup = eval('s:backup[' . string(start) . ':]')
 endfunction
+
+function! tweetvim#buffer#userstream(title)
+
+  call s:switch_buffer()
+  call s:pre_process()
+
+  let b:tweetvim_method = 'userstream'
+  let b:tweetvim_status_cache = {}
+
+  let title = '[tweetvim]  - ' . tweetvim#account#current().screen_name . ' - ' . a:title
+
+  call append(0, title)
+  call append(1, tweetvim#util#separator('~'))
+  if g:tweetvim_display_separator
+    delete _
+  endif
+
+  call s:apply_syntax()
+  call s:post_process()
+endfunction
+
 "
 "
 "
@@ -167,7 +245,8 @@ endfunction
 "
 "
 function! s:pre_process()
-  if g:tweetvim_display_icon
+
+  if g:tweetvim_display_icon && has('gui_running')
     setlocal nonu
     hi Signcolumn guibg=bg
   end
@@ -221,12 +300,17 @@ function! s:process(method, args, title, tweets, opt)
     call append(line('$') - 1, tweetvim#util#separator('~'))
   endif
 
-  if g:tweetvim_display_icon
+  if g:tweetvim_display_icon && has('gui_running')
     call s:append_tweets_with_icon(a:tweets, b:tweetvim_status_cache)
   else
     call s:append_tweets(a:tweets, b:tweetvim_status_cache)
   endif
   delete _
+
+  " cause remained old tweet ...
+  if !g:tweetvim_display_separator
+    call append(line('$'), '')
+  endif
 
   let line = get(a:opt, 'line', 1)
   call cursor(line, 1)
@@ -259,61 +343,82 @@ function! s:append_tweets_with_icon(tweets, cache)
   let separator = tweetvim#util#separator('-')
   let today = tweetvim#util#today()
 
-  let current_dir = getcwd()
-  execute "cd " . g:tweetvim_config_dir . '/ico'
-
-  let cmds = []
   for tweet in tweetvim#filter#execute(a:tweets)
     let a:cache[line(".")] = tweet
     let row = line(".")
     call s:append_text(tweet, today)
     call s:append_separator(separator)
-
-    let screen_name = tweet.user.screen_name
-    if has_key(tweet.user, 'profile_image_url')
-      let img_url = tweet.user.profile_image_url
-    else
-      let img_url = tweet.profile_image_url
-    endif
-    let ico_path = g:tweetvim_config_dir . '/ico/' . screen_name . ".ico"
-    let file_name = fnamemodify(img_url, ":t")
-
-    if !filereadable(ico_path)
-      echo "downloading ... " . img_url
-      call system("curl -L -O " . img_url)
-      call system("convert " . fnamemodify(img_url, ":t") . " " . ico_path)
-      call delete(file_name)
-      redraw
-    end
-
-    execute "cd " . current_dir
-
-    call add(cmds, ":sign define tweetvim_icon_" . screen_name . " icon=" . ico_path)
-    call add(cmds, ":sign place 1 line=" . row . " name=tweetvim_icon_" . screen_name . " buffer=" . bufnr("%"))
+    call s:sign(tweet, row)
   endfor
 
-  for cmd in cmds
-    try
-      execute cmd
-    catch
-      echomsg v:errmsg
-    endtry
-  endfor
+endfunction
+
+
+function! s:unsigns()
+  "for name in keys(s:signs)
+    "execute ":sign undefine " . name
+  "endfor
+  let s:signs = {}
+endfunction
+
+function! s:sign(tweet, lineno)
+  let tweet = a:tweet
+  let current_dir = getcwd()
+
+  execute "cd " . g:tweetvim_config_dir . '/ico'
+
+  let screen_name = tweet.user.screen_name
+  if has_key(tweet.user, 'profile_image_url')
+    let img_url = tweet.user.profile_image_url
+  else
+    let img_url = tweet.profile_image_url
+  endif
+  let ico_path = g:tweetvim_config_dir . '/ico/' . screen_name . ".ico"
+  let file_name = fnamemodify(img_url, ":t")
+
+  if !filereadable(ico_path)
+    "echo "downloading ... " . img_url
+    call system("curl -L -O " . img_url)
+    call system("convert " . fnamemodify(img_url, ":t") . " " . ico_path)
+    call delete(file_name)
+    redraw
+  end
+
+  try
+    execute ":sign define tweetvim_icon_" . screen_name . " icon=" . ico_path
+    execute ":sign place 1 line=" . a:lineno . " name=tweetvim_icon_" . screen_name . " buffer=" . bufnr("%")
+    let s:signs["tweetvim_icon_" . screen_name] = 1
+  catch
+    echomsg v:errmsg
+  endtry
+
+  execute "cd " . current_dir
 endfunction
 
 function! s:append_text(tweet, today)
   let text = s:format(a:tweet, a:today)
   let isfirst = 1
   for line in split(text, "\n")
-    call append(line('$') - 1, (isfirst ? '' : '                  ') . substitute(line, '' , '' , 'g'))
+    let space = isfirst || g:tweetvim_display_username ? '' : '                  '
+    if !isfirst && g:tweetvim_display_icon && has('gui_running')
+      let space .= ' '
+    endif
+    call append(line('$') - 1, space . substitute(line, '' , '' , 'g'))
     let isfirst = 0
   endfor
 endfunction
 
-function! s:append_separator(separator)
+function! s:append_separator(separator, ...)
+  " TODO
+  let diff = -1
+  if a:0 > 0
+    let diff = a:1
+  endif
   " insert separator or not
-  if g:tweetvim_display_separator
-    call append(line('$') - 1, a:separator)
+  if g:tweetvim_empty_separator
+    call append(line('$') + diff, "")
+  elseif g:tweetvim_display_separator
+    call append(line('$') + diff, a:separator)
   endif
 endfunction
 "
@@ -369,9 +474,13 @@ function! s:format(tweet, ...)
 
   let today = a:0 ? a:1 : tweetvim#util#today()
 
-  let str  = tweetvim#util#padding(tweet.user.screen_name, 15) . ' : '
+  if g:tweetvim_display_username
+    let str  = tweet.user.name.' @'.tweet.user.screen_name."\n"
+  else
+    let str  = tweetvim#util#padding(tweet.user.screen_name, 15) . ' : '
+  endif
   " FIXME
-  if g:tweetvim_display_icon
+  if g:tweetvim_display_icon && has('gui_running')
     let str = ' ' . str
   endif
   " TODO
@@ -399,6 +508,7 @@ function! s:format(tweet, ...)
       let date  = substitute(date, today, '', '')
       let str .= ' [[' . date . ']]'
     catch
+      echo v:exception
       " serch と timeline でフォーマットが違う
     endtry
   endif
@@ -406,7 +516,19 @@ function! s:format(tweet, ...)
   return str
 endfunction
 
+function! s:apply_syntax()
+  syntax clear tweetvim_reply
+  if b:tweetvim_method == 'mentions'
+    return
+  endif
+  let screen_name = tweetvim#account#current().screen_name
+  execute 'syntax match tweetvim_reply "\zs.*@' . screen_name . '.\{-}\ze\s\[\["'
+endfunction
+
 function! s:define_default_key_mappings()
+  if g:tweetvim_no_default_key_mappings
+    return
+  endif
   augroup tweetvim
     nmap <silent> <buffer> <CR>       <Plug>(tweetvim_action_enter)
     nmap <silent> <buffer> r  <Plug>(tweetvim_action_reply)

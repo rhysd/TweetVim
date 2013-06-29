@@ -13,18 +13,26 @@ endfunction
 "
 "
 function! tweetvim#util#format_date(date)
-  if a:date =~ ','
-    let date_time = s:DateTime.from_format(a:date,'%a, %d %b %Y %H:%M:%S %z', 'C')
-  else
-    let date_time = s:DateTime.from_format(a:date,'%a %b %d %H:%M:%S %z %Y', 'C')
-  endif
-  return date_time.strftime("%m/%d %H:%M")
+  try
+    if a:date =~ ','
+      let date_time = s:DateTime.from_format(a:date,'%a, %d %b %Y %H:%M:%S %z', 'C')
+    else
+      let date_time = s:DateTime.from_format(a:date,'%a %b %d %H:%M:%S %z %Y', 'C')
+    endif
+    return date_time.strftime("%m/%d %H:%M")
+  catch
+    return a:date
+  endtry
 endfunction
 "
 "
 "
 function! tweetvim#util#today()
- return s:DateTime.now().strftime('%m/%d')
+  try
+    return s:DateTime.now().strftime('%m/%d')
+  catch
+    return "error"
+  endtry
 endfunction
 "
 "
@@ -84,3 +92,20 @@ function! tweetvim#util#isCursorOnSeprator()
   let name = synIDattr(synID(line('.'),col('.'),1),'name')
   return name == 'tweetvim_separator' || name == 'tweetvim_separator_title'
 endfunction
+"
+" from suddendeath.vim - MIT License
+"
+function tweetvim#util#sudden_death(str)
+  let width = s:str_to_mb_width(a:str) + 2
+  let top = '＿' . join(map(range(width), '"人"'),'') . '＿'
+  let content = '＞　' . a:str . '　＜'
+  let bottom = '￣' . join(map(range(width), '"Ｙ"'),'') . '￣'
+  return join([top, content, bottom], "\n")
+endfunction
+"
+" from suddendeath.vim - MIT License
+"
+function! s:str_to_mb_width(str)
+  return strlen(substitute(substitute(a:str, "[ -~｡-ﾟ]", 's', 'g'), "[^s]", 'mm', 'g')) / 2
+endfunction
+"
